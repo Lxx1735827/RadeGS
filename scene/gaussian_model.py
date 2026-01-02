@@ -68,6 +68,23 @@ class GaussianModel:
         self._appearance_embeddings = nn.Parameter(torch.empty(2048, 64).cuda())
         self._appearance_embeddings.data.normal_(0, std)
 
+    # 随机丢弃
+    def apply_dropout(self, p=0.3):
+        """
+        在训练过程中对高斯点应用丢弃正则化（Dropout）。
+        :param p: 丢弃的概率，0 到 1 之间
+        """
+        # 创建丢弃掩码，随机选择丢弃的高斯点
+        dropout_mask = torch.rand_like(self._opacity) > p  # 生成与透明度相同形状的掩码
+
+        # 将丢弃的高斯点位置、透明度、特征等设为零
+        self._xyz = self._xyz * dropout_mask  # 将丢弃的高斯点位置设为零
+        self._opacity = self._opacity * dropout_mask  # 将丢弃的高斯点透明度设为零
+        self._features_dc = self._features_dc * dropout_mask.unsqueeze(-1)  # 将丢弃的特征设为零
+        self._features_rest = self._features_rest * dropout_mask.unsqueeze(-1)  # 将丢弃的特征设为零
+        self._scaling = self._scaling * dropout_mask  # 将丢弃的缩放设为零
+        self._rotation = self._rotation * dropout_mask  # 将丢弃的旋转设为零
+
     def capture(self):
         return (
             self.active_sh_degree,
