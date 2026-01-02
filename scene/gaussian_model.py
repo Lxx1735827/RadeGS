@@ -68,6 +68,14 @@ class GaussianModel:
         self._appearance_embeddings = nn.Parameter(torch.empty(2048, 64).cuda())
         self._appearance_embeddings.data.normal_(0, std)
 
+    def compensate_dropout(self, p=0.3):
+        """
+        在测试时补偿训练期间丢弃正则化的透明度损失。
+        :param p: 丢弃的概率，0 到 1 之间
+        """
+        # 在测试时，透明度补偿，确保每个高斯点的贡献是完整的
+        self._opacity = (1 - p) * self._opacity  # 将透明度按 (1 - p) 进行缩放
+
     # 随机丢弃
     def apply_dropout(self, p=0.3):
         """
