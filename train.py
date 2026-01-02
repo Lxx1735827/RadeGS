@@ -175,7 +175,7 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
         gt_depth_tensor = torch.tensor(gt_depth, dtype=torch.float32, device="cuda")
 
         if reg_kick_on:
-
+            scene.gaussians.apply_dropout()
             lambda_depth_normal = opt.lambda_depth_normal
             if require_depth:
                 rendered_expected_depth: torch.Tensor = render_pkg["expected_depth"]
