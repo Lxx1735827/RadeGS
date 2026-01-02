@@ -12,6 +12,7 @@
 import os
 import torch
 from random import randint
+import numpy as np
 from utils.loss_utils import l1_loss, ssim
 from gaussian_renderer import render, network_gui
 import sys
@@ -56,6 +57,92 @@ def L1_loss_appearance(image, gt_image, gaussians, view_idx, return_transformed_
     else:
         transformed_image = torch.nn.functional.interpolate(transformed_image, size=(origH, origW), mode="bilinear", align_corners=True)[0]
         return transformed_image
+
+def pcc_loss(pred_depth, gt_depth, mask, eps=1e-6, min_valid=50):
+    if pred_depth.dim() == 3:
+        pred_depth = pred_depth.squeeze(0)
+    if gt_depth.dim() == 3:
+        gt_depth = gt_depth.squeeze(0)
+
+    mask = mask > 0
+
+    if mask.sum() < min_valid:
+        return torch.tensor(0.0, device=pred_depth.device)
+
+    pred = pred_depth[mask]
+    gt = gt_depth[mask]
+
+    pred = pred - pred.mean()
+    gt = gt - gt.mean()
+
+    pred_std = pred.std()
+    gt_std = gt.std()
+
+    corr = (pred * gt).mean() / (pred_std * gt_std + eps)
+
+    return 1.0 - corr
+
+def sample_pixel_pairs(mask, num_pairs):
+    """
+    从掩码中随机采样像素对
+    mask: H×W bool tensor
+    return: (N, 2) index pairs in flattened index
+    """
+    # 展平，找到所有为true的像素的索引
+    idx = torch.nonzero(mask.flatten(), as_tuple=False).squeeze(1)
+    if idx.numel() < 2:
+        return None
+    # 随机采样
+    perm = torch.randint(0, idx.numel(), (num_pairs * 2,), device=mask.device)
+    u = idx[perm[:num_pairs]]
+    v = idx[perm[num_pairs:]]
+    return u, v
+
+def depth_order_loss(
+    pred_depth,     # rendered_expected_depth (H×W)
+    gt_depth,       # MoGe depth (H×W)
+    mask,           # valid mask (H×W)
+    num_pairs=8192,
+    tau=0.02
+):
+    """
+    tau: 相对深度阈值（后面我会解释怎么定）
+    """
+    if pred_depth.dim() == 3:
+        pred_depth = pred_depth.squeeze(0)
+    if gt_depth.dim() == 3:
+        gt_depth = gt_depth.squeeze(0)
+    if mask.dim() == 3:
+        mask = mask.squeeze(0)
+    device = pred_depth.device
+    H, W = pred_depth.shape
+    pred = pred_depth.flatten()
+    gt = gt_depth.flatten()
+
+    pairs = sample_pixel_pairs(mask, num_pairs)
+    if pairs is None:
+        return torch.tensor(0.0, device=device)
+
+    u, v = pairs
+
+    # MoGe depth difference
+    d_gt = gt[u] - gt[v]
+
+    # ordinal label
+    label = torch.zeros_like(d_gt)
+    label[d_gt > tau] = 1.0
+    label[d_gt < -tau] = -1.0
+
+    valid = label != 0
+    if valid.sum() < 16:
+        return torch.tensor(0.0, device=device)
+
+    d_pred = pred[u] - pred[v]
+
+    # logistic ranking loss
+    loss = torch.log1p(torch.exp(-label[valid] * d_pred[valid]))
+
+    return loss.mean()
 
 
 def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoint_iterations, checkpoint, debug_from):
@@ -136,8 +223,18 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
             Ll1_render = L1_loss_appearance(rendered_image, gt_image, gaussians, viewpoint_cam.uid)
         else:
             Ll1_render = l1_loss(rendered_image, gt_image)
+#         original_normal_file = viewpoint_cam.image_name+".npy"
+#         original_normal_dir = "/root/autodl-tmp/MoGe/output_all/"
+#         gt_normal = np.load(original_normal_dir+original_normal_file)
+#         gt_normal_tensor = torch.tensor(gt_normal, dtype=torch.float32, device="cuda")
+#         gt_normal_tensor = gt_normal_tensor.permute(2, 0, 1)
+#         gt_normal_tensor = gt_normal_tensor/gt_normal_tensor.norm(p=2, dim=1, keepdim=True)
 
-        
+        original_depth_file = viewpoint_cam.image_name+".npy"
+        original_depth_dir = "/root/autodl-tmp/MoGe/depth/"
+        gt_depth = np.load(original_depth_dir + original_depth_file)
+        gt_depth_tensor = torch.tensor(gt_depth, dtype=torch.float32, device="cuda")
+
         if reg_kick_on:
             lambda_depth_normal = opt.lambda_depth_normal
             if require_depth:
@@ -145,21 +242,38 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
                 rendered_median_depth: torch.Tensor = render_pkg["median_depth"]
                 rendered_normal: torch.Tensor = render_pkg["normal"]
                 depth_middepth_normal = depth_double_to_normal(viewpoint_cam, rendered_expected_depth, rendered_median_depth)
+                depth_mask = render_pkg["mask"].squeeze() > 0
+#                 pcc_depth_loss = pcc_loss(rendered_expected_depth, gt_depth_tensor, depth_mask)
+                M = depth_mask.sum().item()
+                num_pairs = int(min(max(0.02 * M, 2048),16384))
+                depth_loss = depth_order_loss(rendered_expected_depth, gt_depth_tensor, depth_mask, num_pairs)
             else:
                 rendered_expected_coord: torch.Tensor = render_pkg["expected_coord"]
                 rendered_median_coord: torch.Tensor = render_pkg["median_coord"]
                 rendered_normal: torch.Tensor = render_pkg["normal"]
                 depth_middepth_normal = point_double_to_normal(viewpoint_cam, rendered_expected_coord, rendered_median_coord)
+#                 pcc_depth_loss = torch.tensor(0.0, device="cuda")
+                depth_loss = torch.tensor(0.0, device="cuda")
             depth_ratio = 0.6
             normal_error_map = (1 - (rendered_normal.unsqueeze(0) * depth_middepth_normal).sum(dim=1))
             depth_normal_loss = (1-depth_ratio) * normal_error_map[0].mean() + depth_ratio * normal_error_map[1].mean()
+#             rendered_normal = rendered_normal/rendered_normal.norm(p=2, dim=1, keepdim=True)
+#             normal_mask = render_pkg["mask"].squeeze().float()
+#             normal_diff = torch.norm(gt_normal_tensor -  rendered_normal, p=2, dim=0)
+#             moge_normal_loss = (normal_diff*normal_mask).sum()/(normal_mask.sum()+1e-6)
+
         else:
             lambda_depth_normal = 0
             depth_normal_loss = torch.tensor([0],dtype=torch.float32,device="cuda")
-            
+#             moge_normal_loss = 0
+#             pcc_depth_loss = 0
+            depth_loss = torch.tensor(0.0, device="cuda")
+
         rgb_loss = (1.0 - opt.lambda_dssim) * Ll1_render + opt.lambda_dssim * (1.0 - ssim(rendered_image, gt_image.unsqueeze(0)))
-        
-        loss = rgb_loss + depth_normal_loss * lambda_depth_normal
+       
+#         loss = rgb_loss + depth_normal_loss * lambda_depth_normal+0.2*moge_normal_loss
+#         loss = rgb_loss + depth_normal_loss * lambda_depth_normal + 0.1*pcc_depth_loss
+        loss = rgb_loss + depth_normal_loss * lambda_depth_normal + 0.1*depth_loss
         loss.backward()
 
         iter_end.record()

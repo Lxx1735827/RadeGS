@@ -190,11 +190,13 @@ def storePly(path, xyz, rgb):
 
 def readColmapSceneInfo(path, images, eval, llffhold=8):
     try:
+        print("bin")
         cameras_extrinsic_file = os.path.join(path, "sparse/0", "images.bin")
         cameras_intrinsic_file = os.path.join(path, "sparse/0", "cameras.bin")
         cam_extrinsics = read_extrinsics_binary(cameras_extrinsic_file)
         cam_intrinsics = read_intrinsics_binary(cameras_intrinsic_file)
     except:
+        print("txt")
         cameras_extrinsic_file = os.path.join(path, "sparse/0", "images.txt")
         cameras_intrinsic_file = os.path.join(path, "sparse/0", "cameras.txt")
         cam_extrinsics = read_extrinsics_text(cameras_extrinsic_file)
@@ -205,8 +207,18 @@ def readColmapSceneInfo(path, images, eval, llffhold=8):
     cam_infos = sorted(cam_infos_unsorted.copy(), key = lambda x : x.image_name)
 
     if eval:
-        train_cam_infos = [c for idx, c in enumerate(cam_infos) if idx % llffhold != 0]
-        test_cam_infos = [c for idx, c in enumerate(cam_infos) if idx % llffhold == 0]
+        test_txt = set()
+        with open("data7/test.txt",  "r") as f:
+            lines = f.readlines()
+            for line in lines:
+                test_txt.add(line.strip()[:-4])
+        train_txt = set()
+        with open("data7/train.txt", "r") as f:
+            lines = f.readlines()
+            for line in lines:
+                train_txt.add(line.strip()[:-4])
+        train_cam_infos = [c for c in cam_infos if c.image_name in train_txt]
+        test_cam_infos = [c for c in cam_infos if c.image_name in test_txt]
     else:
         train_cam_infos = cam_infos
         test_cam_infos = []
