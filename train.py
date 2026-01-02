@@ -213,7 +213,7 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
        
 #         loss = rgb_loss + depth_normal_loss * lambda_depth_normal+0.2*moge_normal_loss
 #         loss = rgb_loss + depth_normal_loss * lambda_depth_normal + 0.1*pcc_depth_loss
-        loss = rgb_loss + depth_normal_loss * lambda_depth_normal + 0.1*depth_loss
+        loss = rgb_loss + depth_normal_loss * lambda_depth_normal + 0.05*depth_loss
         loss.backward()
 
         iter_end.record()
