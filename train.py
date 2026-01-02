@@ -24,6 +24,7 @@ from utils.image_utils import psnr
 from utils.graphics_utils import point_double_to_normal, depth_double_to_normal
 from argparse import ArgumentParser, Namespace
 from arguments import ModelParams, PipelineParams, OptimizationParams
+from regularization.depth.depth_order import compute_depth_order_loss
 try:
     from torch.utils.tensorboard import SummaryWriter
     TENSORBOARD_FOUND = True
@@ -81,68 +82,6 @@ def pcc_loss(pred_depth, gt_depth, mask, eps=1e-6, min_valid=50):
     corr = (pred * gt).mean() / (pred_std * gt_std + eps)
 
     return 1.0 - corr
-
-def sample_pixel_pairs(mask, num_pairs):
-    """
-    从掩码中随机采样像素对
-    mask: H×W bool tensor
-    return: (N, 2) index pairs in flattened index
-    """
-    # 展平，找到所有为true的像素的索引
-    idx = torch.nonzero(mask.flatten(), as_tuple=False).squeeze(1)
-    if idx.numel() < 2:
-        return None
-    # 随机采样
-    perm = torch.randint(0, idx.numel(), (num_pairs * 2,), device=mask.device)
-    u = idx[perm[:num_pairs]]
-    v = idx[perm[num_pairs:]]
-    return u, v
-
-def depth_order_loss(
-    pred_depth,     # rendered_expected_depth (H×W)
-    gt_depth,       # MoGe depth (H×W)
-    mask,           # valid mask (H×W)
-    num_pairs=8192,
-    tau=0.02
-):
-    """
-    tau: 相对深度阈值（后面我会解释怎么定）
-    """
-    if pred_depth.dim() == 3:
-        pred_depth = pred_depth.squeeze(0)
-    if gt_depth.dim() == 3:
-        gt_depth = gt_depth.squeeze(0)
-    if mask.dim() == 3:
-        mask = mask.squeeze(0)
-    device = pred_depth.device
-    H, W = pred_depth.shape
-    pred = pred_depth.flatten()
-    gt = gt_depth.flatten()
-
-    pairs = sample_pixel_pairs(mask, num_pairs)
-    if pairs is None:
-        return torch.tensor(0.0, device=device)
-
-    u, v = pairs
-
-    # MoGe depth difference
-    d_gt = gt[u] - gt[v]
-
-    # ordinal label
-    label = torch.zeros_like(d_gt)
-    label[d_gt > tau] = 1.0
-    label[d_gt < -tau] = -1.0
-
-    valid = label != 0
-    if valid.sum() < 16:
-        return torch.tensor(0.0, device=device)
-
-    d_pred = pred[u] - pred[v]
-
-    # logistic ranking loss
-    loss = torch.log1p(torch.exp(-label[valid] * d_pred[valid]))
-
-    return loss.mean()
 
 
 def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoint_iterations, checkpoint, debug_from):
@@ -242,11 +181,12 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
                 rendered_median_depth: torch.Tensor = render_pkg["median_depth"]
                 rendered_normal: torch.Tensor = render_pkg["normal"]
                 depth_middepth_normal = depth_double_to_normal(viewpoint_cam, rendered_expected_depth, rendered_median_depth)
-                depth_mask = render_pkg["mask"].squeeze() > 0
+                # depth_mask = render_pkg["mask"].squeeze() > 0
 #                 pcc_depth_loss = pcc_loss(rendered_expected_depth, gt_depth_tensor, depth_mask)
-                M = depth_mask.sum().item()
-                num_pairs = int(min(max(0.02 * M, 2048),16384))
-                depth_loss = depth_order_loss(rendered_expected_depth, gt_depth_tensor, depth_mask, num_pairs)
+#                 M = depth_mask.sum().item()
+                # num_pairs = int(min(max(0.02 * M, 2048),16384))
+                # depth_loss = depth_order_loss(rendered_expected_depth, gt_depth_tensor, depth_mask, num_pairs)
+                depth_loss = compute_depth_order_loss(rendered_expected_depth, gt_depth_tensor)
             else:
                 rendered_expected_coord: torch.Tensor = render_pkg["expected_coord"]
                 rendered_median_coord: torch.Tensor = render_pkg["median_coord"]
