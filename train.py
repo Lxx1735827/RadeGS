@@ -163,14 +163,14 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
         else:
             Ll1_render = l1_loss(rendered_image, gt_image)
         original_normal_file = viewpoint_cam.image_name+".npy"
-        original_normal_dir = os.path.join(dataset.source_path, "normal")
-        gt_normal = np.load(original_normal_dir+original_normal_file)
+        original_normal_dir = os.path.join(dataset.source_path, "normal/")
+        gt_normal = np.load(original_normal_dir + original_normal_file)
         gt_normal_tensor = torch.tensor(gt_normal, dtype=torch.float32, device="cuda")
         gt_normal_tensor = gt_normal_tensor.permute(2, 0, 1)
         gt_normal_tensor = gt_normal_tensor/gt_normal_tensor.norm(p=2, dim=1, keepdim=True)
 
         # original_depth_file = viewpoint_cam.image_name+".npy"
-        # original_depth_dir = os.path.join(dataset.source_path, "depth")
+        # original_depth_dir = os.path.join(dataset.source_path, "depth/")
         # gt_depth = np.load(original_depth_dir + original_depth_file)
         # gt_depth_tensor = torch.tensor(gt_depth, dtype=torch.float32, device="cuda")
 
