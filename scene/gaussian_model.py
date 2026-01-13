@@ -74,7 +74,7 @@ class GaussianModel:
         :param p: 丢弃的概率，0 到 1 之间
         """
         # 在测试时，透明度补偿，确保每个高斯点的贡献是完整的
-        self._opacity = (1 - p) * self._opacity.clone()  # 将透明度按 (1 - p) 进行缩放
+        self._opacity = (1 - p) * self._opacity.detach()  # 将透明度按 (1 - p) 进行缩放
 
     # 随机丢弃
     def apply_dropout(self, p=0.3):
@@ -86,12 +86,12 @@ class GaussianModel:
         dropout_mask = torch.rand_like(self._opacity) > p  # 生成与透明度相同形状的掩码
 
         # 将丢弃的高斯点位置、透明度、特征等设为零
-        self._xyz = self._xyz.clone() * dropout_mask
-        self._opacity = self._opacity.clone() * dropout_mask
-        self._features_dc = self._features_dc.clone() * dropout_mask.unsqueeze(-1)
-        self._features_rest = self._features_rest.clone() * dropout_mask.unsqueeze(-1)
-        self._scaling = self._scaling.clone() * dropout_mask
-        self._rotation = self._rotation.clone() * dropout_mask
+        self._xyz = self._xyz.detach() * dropout_mask
+        self._opacity = self._opacity.detach() * dropout_mask
+        self._features_dc = self._features_dc.detach() * dropout_mask.unsqueeze(-1)
+        self._features_rest = self._features_rest.detach() * dropout_mask.unsqueeze(-1)
+        self._scaling = self._scaling.detach() * dropout_mask
+        self._rotation = self._rotation.detach() * dropout_mask
 
     def capture(self):
         return (
