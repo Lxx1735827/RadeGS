@@ -86,12 +86,12 @@ class GaussianModel:
         dropout_mask = torch.rand_like(self._opacity) > p  # 生成与透明度相同形状的掩码
 
         # 将丢弃的高斯点位置、透明度、特征等设为零
-        self._xyz = self._xyz * dropout_mask  # 将丢弃的高斯点位置设为零
-        self._opacity = self._opacity * dropout_mask  # 将丢弃的高斯点透明度设为零
-        self._features_dc = self._features_dc * dropout_mask.unsqueeze(-1)  # 将丢弃的特征设为零
-        self._features_rest = self._features_rest * dropout_mask.unsqueeze(-1)  # 将丢弃的特征设为零
-        self._scaling = self._scaling * dropout_mask  # 将丢弃的缩放设为零
-        self._rotation = self._rotation * dropout_mask  # 将丢弃的旋转设为零
+        self._xyz = self._xyz.clone() * dropout_mask
+        self._opacity = self._opacity.clone() * dropout_mask
+        self._features_dc = self._features_dc.clone() * dropout_mask.unsqueeze(-1)
+        self._features_rest = self._features_rest.clone() * dropout_mask.unsqueeze(-1)
+        self._scaling = self._scaling.clone() * dropout_mask
+        self._rotation = self._rotation.clone() * dropout_mask
 
     def capture(self):
         return (
