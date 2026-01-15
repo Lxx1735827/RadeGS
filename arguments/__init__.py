@@ -81,8 +81,8 @@ class OptimizationParams(ParamGroup):
         self.position_lr_delay_mult = 0.01
         self.position_lr_max_steps = 7500
         self.feature_lr = 0.0025
-        self.opacity_lr = 0.05
-        self.scaling_lr = 0.005
+        self.opacity_lr = 0.02
+        self.scaling_lr = 0.002
         self.rotation_lr = 0.001
         self.appearance_embeddings_lr = 0.001
         self.appearance_network_lr = 0.001
@@ -95,7 +95,7 @@ class OptimizationParams(ParamGroup):
         self.densify_until_iter = 5000
         self.regularization_from_iter = 5000
         # self.regularization_from_iter = 0
-        self.densify_grad_threshold = 0.0002
+        self.densify_grad_threshold = 0.0003
 
         super().__init__(parser, "Optimization Parameters")
 
