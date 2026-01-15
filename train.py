@@ -162,20 +162,19 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
             Ll1_render = L1_loss_appearance(rendered_image, gt_image, gaussians, viewpoint_cam.uid)
         else:
             Ll1_render = l1_loss(rendered_image, gt_image)
-        # original_normal_file = viewpoint_cam.image_name+".npy"
-        # original_normal_dir = os.path.join(dataset.source_path, "normal/")
-        # gt_normal = np.load(original_normal_dir + original_normal_file)
-        # gt_normal_tensor = torch.tensor(gt_normal, dtype=torch.float32, device="cuda")
-        # gt_normal_tensor = gt_normal_tensor.permute(2, 0, 1)
-        # gt_normal_tensor = gt_normal_tensor/gt_normal_tensor.norm(p=2, dim=1, keepdim=True)
-
-        original_depth_file = viewpoint_cam.image_name+".npy"
-        original_depth_dir = os.path.join(dataset.source_path, "depth/")
-        gt_depth = np.load(original_depth_dir + original_depth_file)
-        gt_depth_tensor = torch.tensor(gt_depth, dtype=torch.float32, device="cuda")
 
         if reg_kick_on:
             # scene.gaussians.apply_dropout(0.5)
+            # original_normal_file = viewpoint_cam.image_name+".npy"
+            # original_normal_dir = os.path.join(dataset.source_path, "normal/")
+            # gt_normal = np.load(original_normal_dir + original_normal_file)
+            # gt_normal_tensor = torch.tensor(gt_normal, dtype=torch.float32, device="cuda")
+            # gt_normal_tensor = gt_normal_tensor.permute(2, 0, 1)
+            # gt_normal_tensor = gt_normal_tensor/gt_normal_tensor.norm(p=2, dim=1, keepdim=True)
+            # original_depth_file = viewpoint_cam.image_name + ".npy"
+            # original_depth_dir = os.path.join(dataset.source_path, "depth/")
+            # gt_depth = np.load(original_depth_dir + original_depth_file)
+            # gt_depth_tensor = torch.tensor(gt_depth, dtype=torch.float32, device="cuda")
             lambda_depth_normal = opt.lambda_depth_normal
             if require_depth:
                 rendered_expected_depth: torch.Tensor = render_pkg["expected_depth"]
@@ -187,14 +186,14 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
                 # M = depth_mask.sum().item()
                 # num_pairs = int(min(max(0.02 * M, 2048),16384))
                 # depth_loss = depth_order_loss(rendered_expected_depth, gt_depth_tensor, depth_mask, num_pairs)
-                depth_loss = compute_depth_order_loss(rendered_expected_depth, gt_depth_tensor)
+                # depth_loss = compute_depth_order_loss(rendered_expected_depth, gt_depth_tensor)
             else:
                 rendered_expected_coord: torch.Tensor = render_pkg["expected_coord"]
                 rendered_median_coord: torch.Tensor = render_pkg["median_coord"]
                 rendered_normal: torch.Tensor = render_pkg["normal"]
                 depth_middepth_normal = point_double_to_normal(viewpoint_cam, rendered_expected_coord, rendered_median_coord)
                 # pcc_depth_loss = torch.tensor(0.0, device="cuda")
-                depth_loss = torch.tensor(0.0, device="cuda")
+                # depth_loss = torch.tensor(0.0, device="cuda")
             depth_ratio = 0.6
             normal_error_map = (1 - (rendered_normal.unsqueeze(0) * depth_middepth_normal).sum(dim=1))
             depth_normal_loss = (1-depth_ratio) * normal_error_map[0].mean() + depth_ratio * normal_error_map[1].mean()
@@ -208,15 +207,15 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
             depth_normal_loss = torch.tensor([0],dtype=torch.float32,device="cuda")
             # moge_normal_loss = 0
             # pcc_depth_loss = 0
-            depth_loss = torch.tensor(0.0, device="cuda")
+            # depth_loss = torch.tensor(0.0, device="cuda")
 
         rgb_loss = (1.0 - opt.lambda_dssim) * Ll1_render + opt.lambda_dssim * (1.0 - ssim(rendered_image, gt_image.unsqueeze(0)))
        
         # loss = rgb_loss + depth_normal_loss * lambda_depth_normal+0.2*moge_normal_loss
         # loss = rgb_loss + depth_normal_loss * lambda_depth_normal+0.1*moge_normal_loss
         # loss = rgb_loss + depth_normal_loss * lambda_depth_normal + 0.1*pcc_depth_loss
-        loss = rgb_loss + depth_normal_loss * lambda_depth_normal + 0.05*depth_loss
-        # loss = rgb_loss + depth_normal_loss * lambda_depth_normal
+        # loss = rgb_loss + depth_normal_loss * lambda_depth_normal + 0.05*depth_loss
+        loss = rgb_loss + depth_normal_loss * lambda_depth_normal
         loss.backward()
 
         iter_end.record()
