@@ -90,12 +90,12 @@ class OptimizationParams(ParamGroup):
         self.lambda_dssim = 0.2
         self.lambda_depth_normal = 0.05
         self.densification_interval = 100
-        self.opacity_reset_interval = 2000
-        self.densify_from_iter = 500
+        self.opacity_reset_interval = 500
+        self.densify_from_iter = 100
         self.densify_until_iter = 3500
         self.regularization_from_iter = 2000
         # self.regularization_from_iter = 0
-        self.densify_grad_threshold = 0.0005
+        self.densify_grad_threshold = 0.0002
 
         super().__init__(parser, "Optimization Parameters")
 
