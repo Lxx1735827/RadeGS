@@ -175,6 +175,7 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
             # original_depth_dir = os.path.join(dataset.source_path, "depth/")
             # gt_depth = np.load(original_depth_dir + original_depth_file)
             # gt_depth_tensor = torch.tensor(gt_depth, dtype=torch.float32, device="cuda")
+            # valid_mask = torch.isfinite(gt_depth_tensor) & (gt_depth_tensor > 0)
             lambda_depth_normal = opt.lambda_depth_normal
             if require_depth:
                 rendered_expected_depth: torch.Tensor = render_pkg["expected_depth"]
@@ -182,10 +183,11 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
                 rendered_normal: torch.Tensor = render_pkg["normal"]
                 depth_middepth_normal = depth_double_to_normal(viewpoint_cam, rendered_expected_depth, rendered_median_depth)
                 # depth_mask = render_pkg["mask"].squeeze() > 0
-                # pcc_depth_loss = pcc_loss(rendered_expected_depth, gt_depth_tensor, depth_mask)
-                # M = depth_mask.sum().item()
+                # combined_mask = depth_mask & valid_mask
+                # pcc_depth_loss = pcc_loss(rendered_expected_depth, gt_depth_tensor, combined_mask)
+                # M = combined_mask.sum().item()
                 # num_pairs = int(min(max(0.02 * M, 2048),16384))
-                # depth_loss = depth_order_loss(rendered_expected_depth, gt_depth_tensor, depth_mask, num_pairs)
+                # depth_loss = depth_order_loss(rendered_expected_depth, gt_depth_tensor, combined_mask, num_pairs)
                 # depth_loss = compute_depth_order_loss(rendered_expected_depth, gt_depth_tensor)
             else:
                 rendered_expected_coord: torch.Tensor = render_pkg["expected_coord"]

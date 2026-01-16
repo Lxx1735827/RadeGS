@@ -35,6 +35,7 @@ def depth_order_weight_schedule(iteration: int, schedule: str = "default"):
 def compute_depth_order_loss(
         depth: torch.Tensor,
         prior_depth: torch.Tensor,
+        mask: torch.Tensor | None = None,
         scene_extent: float = 1.,
         max_pixel_shift_ratio: float = 0.05,
         normalize_loss: bool = True,
@@ -47,6 +48,7 @@ def compute_depth_order_loss(
     This loss does not require prior depth maps to be multi-view consistent nor to have accurate relative scale.
 
     Args:
+        mask:
         depth (torch.Tensor): A tensor of shape (H, W), (H, W, 1) or (1, H, W) containing the depth values.
         prior_depth (torch.Tensor): A tensor of shape (H, W), (H, W, 1) or (1, H, W) containing the prior depth values.
         scene_extent (float): The extent of the scene used to normalize the loss and make the loss invariant to the scene scale.
@@ -58,46 +60,81 @@ def compute_depth_order_loss(
         torch.Tensor: A scalar tensor.
             If reduction is "none", returns a tensor with same shape as depth containing the pixel-wise depth order loss.
     """
-    height, width = depth.squeeze().shape
-    pixel_coords = torch.stack(torch.meshgrid(
-        torch.linspace(0, height - 1, height, dtype=torch.long, device=depth.device),
-        torch.linspace(0, width - 1, width, dtype=torch.long, device=depth.device),
-        indexing='ij'
-    ), dim=-1).view(-1, 2)
+    # ---------- Shape handling ----------
+    depth = depth.squeeze()
+    prior_depth = prior_depth.squeeze()
+    if mask is not None:
+        mask = mask.squeeze().float()
 
-    # Get random pixel shifts
-    # TODO: Change the sampling so that shifts of (0, 0) are not possible
+    height, width = depth.shape
+    device = depth.device
+
+    # ---------- Pixel coordinates ----------
+    pixel_coords = torch.stack(
+        torch.meshgrid(
+            torch.arange(height, device=device),
+            torch.arange(width, device=device),
+            indexing="ij"
+        ),
+        dim=-1
+    ).view(-1, 2)
+
+    # ---------- Random pixel shifts ----------
     max_pixel_shift = max(round(max_pixel_shift_ratio * max(height, width)), 1)
-    pixel_shifts = torch.randint(-max_pixel_shift, max_pixel_shift + 1, pixel_coords.shape, device=depth.device)
-
-    # Apply pixel shifts to pixel coordinates and clamp to image boundaries
-    shifted_pixel_coords = (pixel_coords + pixel_shifts).clamp(
-        min=torch.tensor([0, 0], device=depth.device),
-        max=torch.tensor([height - 1, width - 1], device=depth.device)
+    pixel_shifts = torch.randint(
+        -max_pixel_shift,
+        max_pixel_shift + 1,
+        pixel_coords.shape,
+        device=device
     )
 
-    # Get depth values at shifted pixel coordinates
-    shifted_depth = depth.squeeze()[
-        shifted_pixel_coords[:, 0],
-        shifted_pixel_coords[:, 1]
-    ].reshape(depth.shape)
-    shifted_prior_depth = prior_depth.squeeze()[
-        shifted_pixel_coords[:, 0],
-        shifted_pixel_coords[:, 1]
-    ].reshape(depth.shape)
+    shifted_pixel_coords = (pixel_coords + pixel_shifts).clamp(
+        min=torch.tensor([0, 0], device=device),
+        max=torch.tensor([height - 1, width - 1], device=device)
+    )
 
-    # Compute pixel-wise depth order loss
+    # ---------- Gather shifted values ----------
+    shifted_depth = depth[
+        shifted_pixel_coords[:, 0],
+        shifted_pixel_coords[:, 1]
+    ].view(height, width)
+
+    shifted_prior_depth = prior_depth[
+        shifted_pixel_coords[:, 0],
+        shifted_pixel_coords[:, 1]
+    ].view(height, width)
+
+    # ---------- Mask handling ----------
+    if mask is not None:
+        shifted_mask = mask[
+            shifted_pixel_coords[:, 0],
+            shifted_pixel_coords[:, 1]
+        ].view(height, width)
+
+        # valid only if both pixels are valid
+        valid_mask = (mask * shifted_mask).detach()
+    else:
+        valid_mask = torch.ones_like(depth)
+
+    # ---------- Depth order loss ----------
     diff = (depth - shifted_depth) / scene_extent
     prior_diff = (prior_depth - shifted_prior_depth) / scene_extent
+
     if normalize_loss:
         prior_diff = prior_diff / prior_diff.detach().abs().clamp(min=1e-8)
-    depth_order_loss = - (diff * prior_diff).clamp(max=0)
-    if log_space:
-        depth_order_loss = torch.log(1. + log_scale * depth_order_loss)
 
-    # Reduce the loss
+    depth_order_loss = - (diff * prior_diff).clamp(max=0)
+
+    if log_space:
+        depth_order_loss = torch.log1p(log_scale * depth_order_loss)
+
+    # apply mask
+    depth_order_loss = depth_order_loss * valid_mask
+
+    # ---------- Reduction ----------
     if reduction == "mean":
-        depth_order_loss = depth_order_loss.mean()
+        denom = valid_mask.sum().clamp(min=1.0)
+        depth_order_loss = depth_order_loss.sum() / denom
     elif reduction == "sum":
         depth_order_loss = depth_order_loss.sum()
     elif reduction == "none":
@@ -105,6 +142,7 @@ def compute_depth_order_loss(
     else:
         raise ValueError(f"Invalid reduction: {reduction}")
 
+    # ---------- Debug ----------
     if debug:
         return {
             "depth_order_loss": depth_order_loss,
@@ -112,7 +150,9 @@ def compute_depth_order_loss(
             "prior_diff": prior_diff,
             "shifted_depth": shifted_depth,
             "shifted_prior_depth": shifted_prior_depth,
+            "valid_mask": valid_mask,
         }
+
     return depth_order_loss
 
 
@@ -132,7 +172,7 @@ def sample_pixel_pairs(mask, num_pairs):
     v = idx[perm[num_pairs:]]
     return u, v
 
-def depth_order_loss(
+def depth_order_loss_(
     pred_depth,     # rendered_expected_depth (H×W)
     gt_depth,       # MoGe depth (H×W)
     mask,           # valid mask (H×W)
