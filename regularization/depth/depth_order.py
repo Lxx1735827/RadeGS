@@ -33,55 +33,63 @@ def depth_order_weight_schedule(iteration: int, schedule: str = "default"):
     return lambda_depth_order
 
 
+import torch
+from typing import Optional
+
+
 def compute_depth_order_loss(
         depth: torch.Tensor,
         prior_depth: torch.Tensor,
         mask: Optional[torch.Tensor] = None,
-        scene_extent: float = 1.,
+        scene_extent: float = 1.0,
         max_pixel_shift_ratio: float = 0.05,
         normalize_loss: bool = True,
         log_space: bool = False,
-        log_scale: float = 20.,
+        log_scale: float = 20.0,
         reduction: str = "mean",
         debug: bool = False,
 ):
-    """Compute a loss encouraging pixels in 'depth' to have the same relative depth order as in 'prior_depth'.
-    This loss does not require prior depth maps to be multi-view consistent nor to have accurate relative scale.
-
-    Args:
-        mask:
-        depth (torch.Tensor): A tensor of shape (H, W), (H, W, 1) or (1, H, W) containing the depth values.
-        prior_depth (torch.Tensor): A tensor of shape (H, W), (H, W, 1) or (1, H, W) containing the prior depth values.
-        scene_extent (float): The extent of the scene used to normalize the loss and make the loss invariant to the scene scale.
-        max_pixel_shift_ratio (float, optional): The maximum pixel shift ratio. Defaults to 0.05, i.e. 5% of the image size.
-        normalize_loss (bool, optional): Whether to normalize the loss. Defaults to True.
-        reduction (str, optional): The reduction to apply to the loss. Can be "mean", "sum" or "none". Defaults to "mean".
-
-    Returns:
-        torch.Tensor: A scalar tensor.
-            If reduction is "none", returns a tensor with same shape as depth containing the pixel-wise depth order loss.
     """
-    # ---------- Shape handling ----------
+    Pairwise depth order consistency loss with strong NaN / Inf protection.
+    """
+
     depth = depth.squeeze()
     prior_depth = prior_depth.squeeze()
+
     if mask is not None:
         mask = mask.squeeze().float()
 
-    height, width = depth.shape
+    H, W = depth.shape
     device = depth.device
 
-    # ---------- Pixel coordinates ----------
+    # ============================================================
+    # 1️⃣ HARD NaN / Inf CLEANING (最重要的一步)
+    # ============================================================
+    depth = torch.nan_to_num(depth, nan=0.0, posinf=0.0, neginf=0.0)
+    prior_depth = torch.nan_to_num(prior_depth, nan=0.0, posinf=0.0, neginf=0.0)
+
+    # 同时把非有限值从 mask 中剔除
+    finite_mask = torch.isfinite(depth) & torch.isfinite(prior_depth)
+    if mask is not None:
+        mask = mask * finite_mask.float()
+    else:
+        mask = finite_mask.float()
+
+    scene_extent = float(scene_extent)
+    if scene_extent < 1e-6:
+        scene_extent = 1e-6
+
     pixel_coords = torch.stack(
         torch.meshgrid(
-            torch.arange(height, device=device),
-            torch.arange(width, device=device),
+            torch.arange(H, device=device),
+            torch.arange(W, device=device),
             indexing="ij"
         ),
         dim=-1
     ).view(-1, 2)
 
-    # ---------- Random pixel shifts ----------
-    max_pixel_shift = max(round(max_pixel_shift_ratio * max(height, width)), 1)
+    max_pixel_shift = max(round(max_pixel_shift_ratio * max(H, W)), 1)
+
     pixel_shifts = torch.randint(
         -max_pixel_shift,
         max_pixel_shift + 1,
@@ -91,48 +99,48 @@ def compute_depth_order_loss(
 
     shifted_pixel_coords = (pixel_coords + pixel_shifts).clamp(
         min=torch.tensor([0, 0], device=device),
-        max=torch.tensor([height - 1, width - 1], device=device)
+        max=torch.tensor([H - 1, W - 1], device=device)
     )
 
-    # ---------- Gather shifted values ----------
     shifted_depth = depth[
         shifted_pixel_coords[:, 0],
         shifted_pixel_coords[:, 1]
-    ].view(height, width)
+    ].view(H, W)
 
     shifted_prior_depth = prior_depth[
         shifted_pixel_coords[:, 0],
         shifted_pixel_coords[:, 1]
-    ].view(height, width)
+    ].view(H, W)
 
-    # ---------- Mask handling ----------
-    if mask is not None:
-        shifted_mask = mask[
-            shifted_pixel_coords[:, 0],
-            shifted_pixel_coords[:, 1]
-        ].view(height, width)
+    shifted_mask = mask[
+        shifted_pixel_coords[:, 0],
+        shifted_pixel_coords[:, 1]
+    ].view(H, W)
 
-        # valid only if both pixels are valid
-        valid_mask = (mask * shifted_mask).detach()
-    else:
-        valid_mask = torch.ones_like(depth)
+    # pair-wise valid mask（两边都有效）
+    valid_mask = (mask * shifted_mask).detach()
 
-    # ---------- Depth order loss ----------
     diff = (depth - shifted_depth) / scene_extent
     prior_diff = (prior_depth - shifted_prior_depth) / scene_extent
 
     if normalize_loss:
-        prior_diff = prior_diff / prior_diff.detach().abs().clamp(min=1e-8)
+        # sign(prior_diff)，但防止除 0
+        prior_diff = prior_diff / prior_diff.detach().abs().clamp(min=1e-6)
 
-    depth_order_loss = - (diff * prior_diff).clamp(max=0)
+    # 只惩罚顺序相反的情况
+    depth_order_loss = - (diff * prior_diff).clamp(max=0.0)
 
-    if log_space:
-        depth_order_loss = torch.log1p(log_scale * depth_order_loss)
-
-    # apply mask
     depth_order_loss = depth_order_loss * valid_mask
 
-    # ---------- Reduction ----------
+    # 再次防 NaN（mask 不能阻止 NaN 传播）
+    depth_order_loss = torch.nan_to_num(
+        depth_order_loss, nan=0.0, posinf=0.0, neginf=0.0
+    )
+
+    if log_space:
+        depth_order_loss = depth_order_loss.clamp(min=0.0)
+        depth_order_loss = torch.log1p(log_scale * depth_order_loss)
+
     if reduction == "mean":
         denom = valid_mask.sum().clamp(min=1.0)
         depth_order_loss = depth_order_loss.sum() / denom
@@ -143,18 +151,19 @@ def compute_depth_order_loss(
     else:
         raise ValueError(f"Invalid reduction: {reduction}")
 
-    # ---------- Debug ----------
+    if not torch.isfinite(depth_order_loss):
+        depth_order_loss = depth_order_loss.new_tensor(0.0)
+
     if debug:
         return {
-            "depth_order_loss": depth_order_loss,
+            "loss": depth_order_loss,
+            "valid_mask_sum": valid_mask.sum(),
             "diff": diff,
             "prior_diff": prior_diff,
-            "shifted_depth": shifted_depth,
-            "shifted_prior_depth": shifted_prior_depth,
-            "valid_mask": valid_mask,
         }
 
     return depth_order_loss
+
 
 
 def sample_pixel_pairs(mask, num_pairs):
