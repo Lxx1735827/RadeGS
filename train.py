@@ -187,7 +187,7 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
                 # pcc_depth_loss = pcc_loss(rendered_expected_depth, gt_depth_tensor, combined_mask)
                 M = combined_mask.sum().item()
                 num_pairs = int(min(max(0.02 * M, 2048),16384))
-                depth_loss = depth_order_loss(rendered_expected_depth, gt_depth_tensor, combined_mask, num_pairs)
+                depth_loss = depth_order_loss_(rendered_expected_depth, gt_depth_tensor, combined_mask, num_pairs)
                 # depth_loss = compute_depth_order_loss(rendered_expected_depth, gt_depth_tensor, combined_mask)
             else:
                 rendered_expected_coord: torch.Tensor = render_pkg["expected_coord"]
