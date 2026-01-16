@@ -1,4 +1,5 @@
 import torch
+from typing import Optional
 
 
 def depth_order_weight_schedule(iteration: int, schedule: str = "default"):
@@ -35,7 +36,7 @@ def depth_order_weight_schedule(iteration: int, schedule: str = "default"):
 def compute_depth_order_loss(
         depth: torch.Tensor,
         prior_depth: torch.Tensor,
-        mask: torch.Tensor | None = None,
+        mask: Optional[torch.Tensor] = None,
         scene_extent: float = 1.,
         max_pixel_shift_ratio: float = 0.05,
         normalize_loss: bool = True,
