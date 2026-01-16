@@ -24,7 +24,7 @@ from utils.image_utils import psnr
 from utils.graphics_utils import point_double_to_normal, depth_double_to_normal
 from argparse import ArgumentParser, Namespace
 from arguments import ModelParams, PipelineParams, OptimizationParams
-from regularization.depth.depth_order import compute_depth_order_loss, depth_order_loss
+from regularization.depth.depth_order import compute_depth_order_loss, depth_order_loss_
 try:
     from torch.utils.tensorboard import SummaryWriter
     TENSORBOARD_FOUND = True
