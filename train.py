@@ -157,8 +157,7 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
                                                                     render_pkg["render"], 
                                                                     render_pkg["viewspace_points"], 
                                                                     render_pkg["visibility_filter"], 
-                                                                    render_pkg["radii"],
-                                                                    render_pkg["dropout_mask"])
+                                                                    render_pkg["radii"],)
         gt_image = viewpoint_cam.original_image.cuda()
 
         if dataset.use_decoupled_appearance:
