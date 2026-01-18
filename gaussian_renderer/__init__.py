@@ -16,7 +16,7 @@ from scene.gaussian_model import GaussianModel
 from utils.sh_utils import eval_sh
 
 
-def render(viewpoint_camera, pc : GaussianModel, pipe, bg_color : torch.Tensor, kernel_size, train: bool = True, dropout_factor: float = 0.2, scaling_modifier = 1.0, require_coord : bool = True, require_depth : bool = True):
+def render(viewpoint_camera, pc : GaussianModel, pipe, bg_color : torch.Tensor, kernel_size, scaling_modifier = 1.0, require_coord : bool = True, require_depth : bool = True):
     """
     Render the scene. 
     
@@ -67,33 +67,6 @@ def render(viewpoint_camera, pc : GaussianModel, pipe, bg_color : torch.Tensor, 
     # from SHs in Python, do it. If not, then SH -> RGB conversion will be done by rasterizer.
     shs = pc.get_features
     colors_precomp = None
-    # init random dropout mask
-    if dropout_factor > 0.0 and train:
-        dropout_mask = torch.rand(pc.get_opacity.shape[0], device=pc.get_opacity.device).cuda()
-        dropout_mask = dropout_mask < (1 - dropout_factor)
-    else:
-        dropout_mask = torch.rand(pc.get_opacity.shape[0], device=pc.get_opacity.device).cuda()
-        dropout_mask = dropout_mask < 1.1
-    # print(dropout_mask.shape)
-    # print(means3D.shape)
-    # print(pc.get_xyz.shape)
-
-
-    # randomly dropout 3DGS points during training
-    if dropout_factor > 0.0 and train:
-        means3D = means3D[dropout_mask]
-        means2D = means2D[dropout_mask]
-        try:
-            means2D.retain_grad()
-        except:
-            pass
-        shs = shs[dropout_mask]
-        opacity = opacity[dropout_mask]
-        scales = scales[dropout_mask]
-        rotations = rotations[dropout_mask]
-    elif not train:
-        # scale opacity for test stage rendering
-        opacity *= 1 - dropout_factor
 
     rendered_image, radii, rendered_expected_coord, rendered_median_coord, rendered_expected_depth, rendered_median_depth, rendered_alpha, rendered_normal = rasterizer(
         means3D = means3D,
@@ -104,9 +77,6 @@ def render(viewpoint_camera, pc : GaussianModel, pipe, bg_color : torch.Tensor, 
         scales = scales,
         rotations = rotations,
         cov3D_precomp = cov3D_precomp)
-    # print("radii.shape", radii.shape)
-
-
 
     # Those Gaussians that were frustum culled or had a radius of 0 were not visible.
     # They will be excluded from value updates used in the splitting criteria.
@@ -120,7 +90,6 @@ def render(viewpoint_camera, pc : GaussianModel, pipe, bg_color : torch.Tensor, 
             "visibility_filter" : radii > 0,
             "radii": radii,
             "normal":rendered_normal,
-            "dropout_mask": dropout_mask,
             }
 
 # integration is adopted from GOF for marching tetrahedra https://github.com/autonomousvision/gaussian-opacity-fields/blob/main/gaussian_renderer/__init__.py

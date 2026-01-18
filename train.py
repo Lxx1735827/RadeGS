@@ -122,7 +122,7 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
                 net_image_bytes = None
                 custom_cam, do_training, pipe.convert_SHs_python, pipe.compute_cov3D_python, keep_alive, scaling_modifer = network_gui.receive()
                 if custom_cam != None:
-                    net_image = render(custom_cam, gaussians, pipe, background, kernel_size, True, 0.2, scaling_modifer)["render"]
+                    net_image = render(custom_cam, gaussians, pipe, background, kernel_size, scaling_modifer)["render"]
                     # net_image = render(custom_cam, gaussians, pipe, background, kernel_size, True, 0.0, scaling_modifer)["render"]
                     net_image_bytes = memoryview((torch.clamp(net_image, min=0, max=1.0) * 255).byte().permute(1, 2, 0).contiguous().cpu().numpy())
                 network_gui.send(net_image_bytes, dataset.source_path)
@@ -150,8 +150,8 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
 
         reg_kick_on = iteration >= opt.regularization_from_iter
         
-        # render_pkg = render(viewpoint_cam, gaussians, pipe, background, kernel_size, require_coord = require_coord and reg_kick_on, require_depth = require_depth and reg_kick_on)
-        render_pkg = render(viewpoint_cam, gaussians, pipe, background, kernel_size, require_coord = require_coord and reg_kick_on, require_depth = require_depth and reg_kick_on, train=True)
+        render_pkg = render(viewpoint_cam, gaussians, pipe, background, kernel_size, require_coord = require_coord and reg_kick_on, require_depth = require_depth and reg_kick_on)
+        # render_pkg = render(viewpoint_cam, gaussians, pipe, background, kernel_size, require_coord = require_coord and reg_kick_on, require_depth = require_depth and reg_kick_on, train=True)
         rendered_image: torch.Tensor
         rendered_image, viewspace_point_tensor, visibility_filter, radii, dropout_mask = (
                                                                     render_pkg["render"], 
@@ -159,10 +159,6 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
                                                                     render_pkg["visibility_filter"], 
                                                                     render_pkg["radii"],
                                                                     render_pkg["dropout_mask"])
-        # print("viewspace_point_tensor", viewspace_point_tensor.shape)
-        # print("visibility_filter", visibility_filter.shape)
-        # print("radii", radii.shape)
-        # print("dropout_mask", dropout_mask.shape)
         gt_image = viewpoint_cam.original_image.cuda()
 
         if dataset.use_decoupled_appearance:
@@ -249,21 +245,8 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
             # Densification
             if iteration < opt.densify_until_iter:
                 # Keep track of max radii in image-space for pruning
-                # print("gaussians.max_radii2D shape:", gaussians.max_radii2D.shape)
-                # print("visibility_filter shape:", visibility_filter.shape)
-                true_indices = torch.nonzero(dropout_mask, as_tuple=True)[0]
-                filtered_indices = true_indices[visibility_filter]
-                combined_mask = torch.zeros_like(dropout_mask, dtype=torch.bool).cuda()
-                combined_mask[filtered_indices] = True
-                gaussians.max_radii2D[combined_mask] = torch.max(gaussians.max_radii2D[combined_mask],
-                                                                 radii[visibility_filter])
-                gaussians.add_densification_stats(
-                    viewspace_point_tensor,  # 局部 tensor
-                    local_mask=visibility_filter,
-                    global_indices=filtered_indices
-                )
-                # gaussians.max_radii2D[visibility_filter] = torch.max(gaussians.max_radii2D[visibility_filter], radii[visibility_filter])
-                # gaussians.add_densification_stats(viewspace_point_tensor, visibility_filter)
+                gaussians.max_radii2D[visibility_filter] = torch.max(gaussians.max_radii2D[visibility_filter], radii[visibility_filter])
+                gaussians.add_densification_stats(viewspace_point_tensor, visibility_filter)
 
                 if iteration > opt.densify_from_iter and iteration % opt.densification_interval == 0:
                     size_threshold = 20 if iteration > opt.opacity_reset_interval else None

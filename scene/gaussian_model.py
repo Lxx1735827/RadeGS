@@ -765,20 +765,20 @@ class GaussianModel:
         torch.cuda.empty_cache()
         return clone - before, split - clone, split - prune
 
-    # def add_densification_stats(self, viewspace_point_tensor, update_filter):
-    #     self.xyz_gradient_accum[update_filter] += torch.norm(viewspace_point_tensor.grad[update_filter,:2], dim=-1, keepdim=True)
-    #     self.xyz_gradient_accum_abs[update_filter] += torch.norm(viewspace_point_tensor.grad[update_filter,2:], dim=-1, keepdim=True)
-    #     self.xyz_gradient_accum_abs_max[update_filter] = torch.max(self.xyz_gradient_accum_abs_max[update_filter], torch.norm(viewspace_point_tensor.grad[update_filter,2:], dim=-1, keepdim=True))
-    #     self.denom[update_filter] += 1
+    def add_densification_stats(self, viewspace_point_tensor, update_filter):
+        self.xyz_gradient_accum[update_filter] += torch.norm(viewspace_point_tensor.grad[update_filter,:2], dim=-1, keepdim=True)
+        self.xyz_gradient_accum_abs[update_filter] += torch.norm(viewspace_point_tensor.grad[update_filter,2:], dim=-1, keepdim=True)
+        self.xyz_gradient_accum_abs_max[update_filter] = torch.max(self.xyz_gradient_accum_abs_max[update_filter], torch.norm(viewspace_point_tensor.grad[update_filter,2:], dim=-1, keepdim=True))
+        self.denom[update_filter] += 1
 
-    def add_densification_stats(self, viewspace_point_tensor, local_mask, global_indices):
-        grad_xy = torch.norm(viewspace_point_tensor.grad[local_mask, :2], dim=-1, keepdim=True)
-        grad_z = torch.norm(viewspace_point_tensor.grad[local_mask, 2:], dim=-1, keepdim=True)
-
-        self.xyz_gradient_accum[global_indices] += grad_xy
-        self.xyz_gradient_accum_abs[global_indices] += grad_z
-        self.xyz_gradient_accum_abs_max[global_indices] = torch.max(
-            self.xyz_gradient_accum_abs_max[global_indices], grad_z
-        )
-        self.denom[global_indices] += 1
+    # def add_densification_stats(self, viewspace_point_tensor, local_mask, global_indices):
+    #     grad_xy = torch.norm(viewspace_point_tensor.grad[local_mask, :2], dim=-1, keepdim=True)
+    #     grad_z = torch.norm(viewspace_point_tensor.grad[local_mask, 2:], dim=-1, keepdim=True)
+    #
+    #     self.xyz_gradient_accum[global_indices] += grad_xy
+    #     self.xyz_gradient_accum_abs[global_indices] += grad_z
+    #     self.xyz_gradient_accum_abs_max[global_indices] = torch.max(
+    #         self.xyz_gradient_accum_abs_max[global_indices], grad_z
+    #     )
+    #     self.denom[global_indices] += 1
 
