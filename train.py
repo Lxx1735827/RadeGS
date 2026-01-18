@@ -153,7 +153,7 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
         render_pkg = render(viewpoint_cam, gaussians, pipe, background, kernel_size, require_coord = require_coord and reg_kick_on, require_depth = require_depth and reg_kick_on)
         # render_pkg = render(viewpoint_cam, gaussians, pipe, background, kernel_size, require_coord = require_coord and reg_kick_on, require_depth = require_depth and reg_kick_on, train=True)
         rendered_image: torch.Tensor
-        rendered_image, viewspace_point_tensor, visibility_filter, radii, dropout_mask = (
+        rendered_image, viewspace_point_tensor, visibility_filter, radii= (
                                                                     render_pkg["render"], 
                                                                     render_pkg["viewspace_points"], 
                                                                     render_pkg["visibility_filter"], 
