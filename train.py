@@ -257,9 +257,13 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
                 combined_mask[filtered_indices] = True
                 gaussians.max_radii2D[combined_mask] = torch.max(gaussians.max_radii2D[combined_mask],
                                                                  radii[visibility_filter])
-                # gaussians.add_densification_stats(viewspace_point_tensor, combined_mask)
+                gaussians.add_densification_stats(
+                    viewspace_point_tensor,  # 局部 tensor
+                    local_mask=visibility_filter,
+                    global_indices=filtered_indices
+                )
                 # gaussians.max_radii2D[visibility_filter] = torch.max(gaussians.max_radii2D[visibility_filter], radii[visibility_filter])
-                gaussians.add_densification_stats(viewspace_point_tensor, visibility_filter)
+                # gaussians.add_densification_stats(viewspace_point_tensor, visibility_filter)
 
                 if iteration > opt.densify_from_iter and iteration % opt.densification_interval == 0:
                     size_threshold = 20 if iteration > opt.opacity_reset_interval else None
