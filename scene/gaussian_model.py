@@ -765,9 +765,26 @@ class GaussianModel:
         torch.cuda.empty_cache()
         return clone - before, split - clone, split - prune
 
+    # def add_densification_stats(self, viewspace_point_tensor, update_filter):
+    #     self.xyz_gradient_accum[update_filter] += torch.norm(viewspace_point_tensor.grad[update_filter,:2], dim=-1, keepdim=True)
+    #     self.xyz_gradient_accum_abs[update_filter] += torch.norm(viewspace_point_tensor.grad[update_filter,2:], dim=-1, keepdim=True)
+    #     self.xyz_gradient_accum_abs_max[update_filter] = torch.max(self.xyz_gradient_accum_abs_max[update_filter], torch.norm(viewspace_point_tensor.grad[update_filter,2:], dim=-1, keepdim=True))
+    #     self.denom[update_filter] += 1
+
     def add_densification_stats(self, viewspace_point_tensor, update_filter):
-        self.xyz_gradient_accum[update_filter] += torch.norm(viewspace_point_tensor.grad[update_filter,:2], dim=-1, keepdim=True)
-        self.xyz_gradient_accum_abs[update_filter] += torch.norm(viewspace_point_tensor.grad[update_filter,2:], dim=-1, keepdim=True)
-        self.xyz_gradient_accum_abs_max[update_filter] = torch.max(self.xyz_gradient_accum_abs_max[update_filter], torch.norm(viewspace_point_tensor.grad[update_filter,2:], dim=-1, keepdim=True))
+        """
+        只对局部 tensor 做 densification，使用局部 mask。
+        注意：如果 xyz_gradient_accum 是全局 tensor，这里不做全局更新。
+        """
+        # 局部 tensor 的梯度 norm
+        grad_xy = torch.norm(viewspace_point_tensor.grad[update_filter, :2], dim=-1, keepdim=True)
+        grad_z = torch.norm(viewspace_point_tensor.grad[update_filter, 2:], dim=-1, keepdim=True)
+
+        # 局部累积（可用于调试或局部统计）
+        self.xyz_gradient_accum[update_filter] += grad_xy
+        self.xyz_gradient_accum_abs[update_filter] += grad_z
+        self.xyz_gradient_accum_abs_max[update_filter] = torch.max(
+            self.xyz_gradient_accum_abs_max[update_filter], grad_z
+        )
         self.denom[update_filter] += 1
 
