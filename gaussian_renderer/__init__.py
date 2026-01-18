@@ -83,7 +83,10 @@ def render(viewpoint_camera, pc : GaussianModel, pipe, bg_color : torch.Tensor, 
     if dropout_factor > 0.0 and train:
         means3D = means3D[dropout_mask]
         means2D = means2D[dropout_mask]
-        means2D.retain_grad()
+        try:
+            means2D.retain_grad()
+        except:
+            pass
         shs = shs[dropout_mask]
         opacity = opacity[dropout_mask]
         scales = scales[dropout_mask]
