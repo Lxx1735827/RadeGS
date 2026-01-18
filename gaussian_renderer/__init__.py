@@ -71,6 +71,9 @@ def render(viewpoint_camera, pc : GaussianModel, pipe, bg_color : torch.Tensor, 
     if dropout_factor > 0.0 and train:
         dropout_mask = torch.rand(pc.get_opacity.shape[0], device=pc.get_opacity.device).cuda()
         dropout_mask = dropout_mask < (1 - dropout_factor)
+    else:
+        dropout_mask = torch.rand(pc.get_opacity.shape[0], device=pc.get_opacity.device).cuda()
+        dropout_mask = dropout_mask < 1.1
     print(dropout_mask.shape)
     print(means3D.shape)
     print(pc.get_xyz.shape)
@@ -80,6 +83,7 @@ def render(viewpoint_camera, pc : GaussianModel, pipe, bg_color : torch.Tensor, 
     if dropout_factor > 0.0 and train:
         means3D = means3D[dropout_mask]
         means2D = means2D[dropout_mask]
+        means2D.retain_grad()
         shs = shs[dropout_mask]
         opacity = opacity[dropout_mask]
         scales = scales[dropout_mask]
