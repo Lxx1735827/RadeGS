@@ -97,6 +97,7 @@ def render(viewpoint_camera, pc : GaussianModel, pipe, bg_color : torch.Tensor, 
         scales = scales,
         rotations = rotations,
         cov3D_precomp = cov3D_precomp)
+    print("radii.shape", radii.shape)
 
 
 
