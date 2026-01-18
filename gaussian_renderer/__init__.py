@@ -74,9 +74,9 @@ def render(viewpoint_camera, pc : GaussianModel, pipe, bg_color : torch.Tensor, 
     else:
         dropout_mask = torch.rand(pc.get_opacity.shape[0], device=pc.get_opacity.device).cuda()
         dropout_mask = dropout_mask < 1.1
-    print(dropout_mask.shape)
-    print(means3D.shape)
-    print(pc.get_xyz.shape)
+    # print(dropout_mask.shape)
+    # print(means3D.shape)
+    # print(pc.get_xyz.shape)
 
 
     # randomly dropout 3DGS points during training
@@ -101,7 +101,7 @@ def render(viewpoint_camera, pc : GaussianModel, pipe, bg_color : torch.Tensor, 
         scales = scales,
         rotations = rotations,
         cov3D_precomp = cov3D_precomp)
-    print("radii.shape", radii.shape)
+    # print("radii.shape", radii.shape)
 
 
 

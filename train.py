@@ -159,10 +159,10 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
                                                                     render_pkg["visibility_filter"], 
                                                                     render_pkg["radii"],
                                                                     render_pkg["dropout_mask"])
-        print("viewspace_point_tensor", viewspace_point_tensor.shape)
-        print("visibility_filter", visibility_filter.shape)
-        print("radii", radii.shape)
-        print("dropout_mask", dropout_mask.shape)
+        # print("viewspace_point_tensor", viewspace_point_tensor.shape)
+        # print("visibility_filter", visibility_filter.shape)
+        # print("radii", radii.shape)
+        # print("dropout_mask", dropout_mask.shape)
         gt_image = viewpoint_cam.original_image.cuda()
 
         if dataset.use_decoupled_appearance:
@@ -249,8 +249,8 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
             # Densification
             if iteration < opt.densify_until_iter:
                 # Keep track of max radii in image-space for pruning
-                print("gaussians.max_radii2D shape:", gaussians.max_radii2D.shape)
-                print("visibility_filter shape:", visibility_filter.shape)
+                # print("gaussians.max_radii2D shape:", gaussians.max_radii2D.shape)
+                # print("visibility_filter shape:", visibility_filter.shape)
                 true_indices = torch.nonzero(dropout_mask, as_tuple=True)[0]
                 filtered_indices = true_indices[visibility_filter]
                 combined_mask = torch.zeros_like(dropout_mask, dtype=torch.bool).cuda()
