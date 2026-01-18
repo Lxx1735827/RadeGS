@@ -16,7 +16,7 @@ from scene.gaussian_model import GaussianModel
 from utils.sh_utils import eval_sh
 
 
-def render(viewpoint_camera, pc : GaussianModel, pipe, bg_color : torch.Tensor, kernel_size, train: bool = True, dropout_factor: float = 0.1, scaling_modifier = 1.0, require_coord : bool = True, require_depth : bool = True):
+def render(viewpoint_camera, pc : GaussianModel, pipe, bg_color : torch.Tensor, kernel_size, train: bool = True, dropout_factor: float = 0.3, scaling_modifier = 1.0, require_coord : bool = True, require_depth : bool = True):
     """
     Render the scene. 
     
