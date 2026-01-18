@@ -71,6 +71,10 @@ def render(viewpoint_camera, pc : GaussianModel, pipe, bg_color : torch.Tensor, 
     if dropout_factor > 0.0 and train:
         dropout_mask = torch.rand(pc.get_opacity.shape[0], device=pc.get_opacity.device).cuda()
         dropout_mask = dropout_mask < (1 - dropout_factor)
+    print(dropout_mask.shape)
+    print(means3D.shape)
+    print(pc.get_xyz.shape)
+
 
     # randomly dropout 3DGS points during training
     if dropout_factor > 0.0 and train:
