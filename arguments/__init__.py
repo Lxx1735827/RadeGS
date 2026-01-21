@@ -81,7 +81,7 @@ class OptimizationParams(ParamGroup):
         self.position_lr_delay_mult = 0.01
         self.position_lr_max_steps = 10000
         self.feature_lr = 0.0025
-        self.opacity_lr = 0.02
+        self.opacity_lr = 0.05
         self.scaling_lr = 0.005
         self.rotation_lr = 0.001
         self.appearance_embeddings_lr = 0.001
@@ -89,9 +89,9 @@ class OptimizationParams(ParamGroup):
         self.percent_dense = 0.01
         self.lambda_dssim = 0.2
         self.lambda_depth_normal = 0.05
-        self.densification_interval = 500
-        self.opacity_reset_interval = 1000
-        self.densify_from_iter = 100
+        self.densification_interval = 100
+        self.opacity_reset_interval = 1500
+        self.densify_from_iter = 300
         self.densify_until_iter = 5000
         self.regularization_from_iter = 5000
         # self.regularization_from_iter = 0
