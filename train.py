@@ -213,15 +213,11 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
             # depth_loss = torch.tensor(0.0, device="cuda")
 
         rgb_loss = (1.0 - opt.lambda_dssim) * Ll1_render + opt.lambda_dssim * (1.0 - ssim(rendered_image, gt_image.unsqueeze(0)))
-       
-        # loss = rgb_loss + depth_normal_loss * lambda_depth_normal+0.2*moge_normal_loss
-        # loss = rgb_loss + depth_normal_loss * lambda_depth_normal+0.1*moge_normal_loss
+
         if iteration > 8000:
             loss = rgb_loss + depth_normal_loss * lambda_depth_normal + 0.05*pcc_depth_loss
-        # loss = rgb_loss + depth_normal_loss * lambda_depth_normal + 0.05*depth_loss
         else:
             loss = rgb_loss + depth_normal_loss * lambda_depth_normal
-        # loss = rgb_loss + depth_normal_loss * lambda_depth_normal
         loss.backward()
 
         iter_end.record()
