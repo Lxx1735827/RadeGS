@@ -114,7 +114,11 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
     
     progress_bar = tqdm(range(first_iter, opt.iterations), desc="Training progress")
     first_iter += 1
-    for iteration in range(first_iter, opt.iterations + 1):        
+    for iteration in range(first_iter, opt.iterations + 1):
+        if iteration > 8000:
+            train = False
+        else:
+            train = True
         if network_gui.conn == None:
             network_gui.try_connect()
         while network_gui.conn != None:
@@ -122,7 +126,7 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
                 net_image_bytes = None
                 custom_cam, do_training, pipe.convert_SHs_python, pipe.compute_cov3D_python, keep_alive, scaling_modifer = network_gui.receive()
                 if custom_cam != None:
-                    net_image = render(custom_cam, gaussians, pipe, background, kernel_size, scaling_modifier=scaling_modifer)["render"]
+                    net_image = render(custom_cam, gaussians, pipe, background, kernel_size, scaling_modifier=scaling_modifer, train=train)["render"]
                     # net_image = render(custom_cam, gaussians, pipe, background, kernel_size, True, 0.0, scaling_modifer)["render"]
                     net_image_bytes = memoryview((torch.clamp(net_image, min=0, max=1.0) * 255).byte().permute(1, 2, 0).contiguous().cpu().numpy())
                 network_gui.send(net_image_bytes, dataset.source_path)
@@ -151,7 +155,7 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
         reg_kick_on = iteration >= opt.regularization_from_iter
         
         # render_pkg = render(viewpoint_cam, gaussians, pipe, background, kernel_size, require_coord = require_coord and reg_kick_on, require_depth = require_depth and reg_kick_on)
-        render_pkg = render(viewpoint_cam, gaussians, pipe, background, kernel_size, require_coord = require_coord and reg_kick_on, require_depth = require_depth and reg_kick_on, train=True)
+        render_pkg = render(viewpoint_cam, gaussians, pipe, background, kernel_size, require_coord = require_coord and reg_kick_on, require_depth = require_depth and reg_kick_on, train=train)
         rendered_image: torch.Tensor
         rendered_image, viewspace_point_tensor, visibility_filter, radii, dropout_mask = (
                                                                     render_pkg["render"], 
