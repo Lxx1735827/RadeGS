@@ -116,9 +116,9 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
     first_iter += 1
     for iteration in range(first_iter, opt.iterations + 1):
         if iteration > 5000:
-            train = False
-        else:
             train = True
+        else:
+            train = False
         if network_gui.conn == None:
             network_gui.try_connect()
         while network_gui.conn != None:
