@@ -91,9 +91,9 @@ def render(viewpoint_camera, pc : GaussianModel, pipe, bg_color : torch.Tensor, 
         opacity = opacity[dropout_mask]
         scales = scales[dropout_mask]
         rotations = rotations[dropout_mask]
-    elif not train:
-        # scale opacity for test stage rendering
-        opacity *= 1 - dropout_factor
+    # elif not train:
+    #     # scale opacity for test stage rendering
+    #     opacity *= 1 - dropout_factor
 
     rendered_image, radii, rendered_expected_coord, rendered_median_coord, rendered_expected_depth, rendered_median_depth, rendered_alpha, rendered_normal = rasterizer(
         means3D = means3D,
