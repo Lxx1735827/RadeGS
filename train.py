@@ -93,13 +93,13 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
     trian_source_path = os.path.join(dataset.source_path, "train")
     file_count = len(os.listdir(trian_source_path))
     factor = file_count // 30 + 1
-    opt.iterations = factor * 1575
-    opt.position_lr_max_steps = factor * 1575
-    opt.densify_until_iter = factor * 750
-    opt.regularization_from_iter = factor * 750
-    testing_iterations = [factor * 750, factor * 1500, factor * 1575]
-    saving_iterations = [factor * 750, factor * 1500, factor * 1575]
-    checkpoint_iterations = [factor * 750]
+    opt.iterations = factor * 1100
+    opt.position_lr_max_steps = factor * 1100
+    opt.densify_until_iter = factor * 500
+    opt.regularization_from_iter = factor * 500
+    testing_iterations = [factor * 500, factor * 1000, factor * 1100]
+    saving_iterations = [factor * 500, factor * 1000, factor * 1100]
+    checkpoint_iterations = [factor * 500]
 
     gaussians.training_setup(opt)
     if checkpoint:
