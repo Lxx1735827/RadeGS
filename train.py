@@ -99,7 +99,7 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
     opt.regularization_from_iter = factor * 500
     testing_iterations = [factor * 500, factor * 1000, factor * 1100]
     saving_iterations = [factor * 500, factor * 1000, factor * 1100]
-    checkpoint_iterations = factor * 500
+    checkpoint_iterations = [factor * 500]
 
     gaussians.training_setup(opt)
     if checkpoint:
