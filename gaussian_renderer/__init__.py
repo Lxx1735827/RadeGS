@@ -16,7 +16,7 @@ from scene.gaussian_model import GaussianModel
 from utils.sh_utils import eval_sh
 
 
-def render(viewpoint_camera, pc : GaussianModel, pipe, bg_color : torch.Tensor, kernel_size, train: bool = True, dropout_factor: float = 0.03, scaling_modifier = 1.0, require_coord : bool = True, require_depth : bool = True):
+def render(viewpoint_camera, pc : GaussianModel, pipe, bg_color : torch.Tensor, kernel_size, train: bool = True, dropout_factor: float = 0.01, scaling_modifier = 1.0, require_coord : bool = True, require_depth : bool = True):
     """
     Render the scene. 
     
@@ -88,7 +88,7 @@ def render(viewpoint_camera, pc : GaussianModel, pipe, bg_color : torch.Tensor, 
         except:
             pass
         shs = shs[dropout_mask]
-        opacity = opacity[dropout_mask]
+        opacity = 1/(1-dropout_factor) * opacity[dropout_mask]
         scales = scales[dropout_mask]
         rotations = rotations[dropout_mask]
     # elif not train:
