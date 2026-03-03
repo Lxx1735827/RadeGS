@@ -226,7 +226,7 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
 
         if iteration > opt.iterations * 0.7:
             # loss = rgb_loss + depth_normal_loss * lambda_depth_normal+0.2*moge_normal_loss
-            loss = rgb_loss + depth_normal_loss * lambda_depth_normal+0.05*moge_normal_loss
+            loss = rgb_loss + 0.2*moge_normal_loss
         else:
             loss = rgb_loss + depth_normal_loss * lambda_depth_normal
         # loss = rgb_loss + depth_normal_loss * lambda_depth_normal + 0.1*pcc_depth_loss
