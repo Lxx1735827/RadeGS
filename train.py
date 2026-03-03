@@ -89,10 +89,18 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
     tb_writer = prepare_output_and_logger(dataset)
     gaussians = GaussianModel(dataset.sh_degree)
     scene = Scene(dataset, gaussians)
-    print(dataset.source_path)
-    print(dataset.model_path)
-    print(dataset.images)
-    print(dataset.dataset)
+
+    trian_source_path = os.path.join(dataset.source_path, "train")
+    file_count = len(os.listdir(trian_source_path))
+    factor = file_count // 30 + 1
+    opt.iterations = factor * 1100
+    opt.position_lr_max_steps = factor * 1100
+    opt.densify_until_iter = factor * 500
+    opt.regularization_from_iter = factor * 500
+    testing_iterations = [factor * 500, factor * 1000, factor * 1100]
+    saving_iterations = [factor * 500, factor * 1000, factor * 1100]
+    checkpoint_iterations = factor * 500
+
     gaussians.training_setup(opt)
     if checkpoint:
         (model_params, first_iter) = torch.load(checkpoint)
