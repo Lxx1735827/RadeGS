@@ -127,7 +127,7 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
     progress_bar = tqdm(range(first_iter, opt.iterations), desc="Training progress")
     first_iter += 1
     for iteration in range(first_iter, opt.iterations + 1):
-        if opt.densify_from_iter < iteration < opt.densify_until_iter * 0.9 and iteration % opt.densification_interval == 0:
+        if opt.densify_from_iter < iteration < opt.densify_until_iter and iteration % opt.densification_interval == 0:
             train = True
         else:
             train = False
