@@ -90,9 +90,9 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
     gaussians = GaussianModel(dataset.sh_degree)
     scene = Scene(dataset, gaussians)
     print(dataset.source_path)
-    pritn(dataset.model_path)
-    pritn(dataset.images)
-    pritn(dataset.dataset)
+    print(dataset.model_path)
+    print(dataset.images)
+    print(dataset.dataset)
     gaussians.training_setup(opt)
     if checkpoint:
         (model_params, first_iter) = torch.load(checkpoint)
